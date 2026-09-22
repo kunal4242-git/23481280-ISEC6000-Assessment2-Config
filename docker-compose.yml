@@ -1,0 +1,66 @@
+services:
+
+  # Docker-in-Docker daemon used by Jenkins to build Docker images.
+  # Docker-in-Docker daemon used by Jenkins to build Docker images.
+  dind:
+    image: docker:29.7.2-dind
+    privileged: true
+    restart: unless-stopped
+
+    # Generate TLS certificates for Docker API communication.
+    environment:
+      DOCKER_TLS_CERTDIR: /certs
+
+    # Persist Docker data and share TLS client certificates with Jenkins.
+    volumes:
+      - FarX123:/var/lib/docker
+      - MyCerts:/certs/client
+      - FarX4242:/var/jenkins_home
+    # Private network used by Jenkins and DinD.
+    networks:
+      jenkins-net:
+        aliases:
+          - docker
+
+    # Check that the Docker daemon is ready.
+    healthcheck:
+      test: ["CMD", "docker", "info"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # Jenkins controller with Docker CLI installed in the custom image.
+  # Jenkins controller with Docker CLI installed.
+  jenkins:
+    image: isec6000-jenkins:assessment2
+    restart: unless-stopped
+
+    depends_on:
+      dind:
+        condition: service_healthy
+
+    ports:
+      - "8080:8080"
+
+    environment:
+      DOCKER_HOST: tcp://docker:2376
+      DOCKER_CERT_PATH: /certs/client
+      DOCKER_TLS_VERIFY: "1"
+
+    volumes:
+      - FarX4242:/var/jenkins_home
+      - MyCerts:/certs/client:ro
+
+    networks:
+      - jenkins-net
+# Named volumes provide persistent storage.
+volumes:
+  FarX123:
+  MyCerts:
+  FarX4242:
+
+
+# Private network for Jenkins and DinD communication.
+networks:
+  jenkins-net:
+    driver: bridge
